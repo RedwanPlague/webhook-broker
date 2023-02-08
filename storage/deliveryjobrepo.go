@@ -192,6 +192,20 @@ func (djRepo *DeliveryJobDBRepository) GetJobsForConsumer(consumer *data.Consume
 	return djRepo.getJobs(baseQuery, nil, consumer, appendWithPaginationArgs(page, consumer.ID.String(), jobStatus))
 }
 
+// GetPrioritizedJobsForConsumer retrieves DeliveryJob created for delivery to a customer and it has to be filtered by a specific status and ordered by message priority
+func (djRepo *DeliveryJobDBRepository) GetPrioritizedJobsForConsumer(consumer *data.Consumer, jobStatus data.JobStatus, page *data.Pagination) ([]*data.DeliveryJob, *data.Pagination, error) {
+	if page == nil || (page.Next != nil && page.Previous != nil) {
+		return getDefaultErrorResponseForJobs()
+	}
+	fields := "id, messageId, consumerId, status, dispatchReceivedAt, retryAttemptCount, statusChangedAt, earliestNextAttemptAt, createdAt, updatedAt"
+	joinedTables := "job JOIN (SELECT id as mid, priority FROM message) as M ON messageId=M.mid"
+	filters := "consumerId like ? AND status = ?"
+	order := " ORDER BY priority DESC"
+	paginate := " LIMIT 25"
+	baseQuery := "SELECT " + fields + " FROM " + joinedTables + " WHERE " + filters + getPaginationQueryFragmentWithConfigurablePageSize(page, true, orderByClause(order+paginate))
+	return djRepo.getJobs(baseQuery, nil, consumer, appendWithPaginationArgs(page, consumer.ID.String(), jobStatus))
+}
+
 // GetJobsInflightSince retrieves jobs in inflight status since the delta duration
 func (djRepo *DeliveryJobDBRepository) GetJobsInflightSince(delta time.Duration) []*data.DeliveryJob {
 	return djRepo.getJobsForStatusAndDelta(data.JobInflight, delta, true)
