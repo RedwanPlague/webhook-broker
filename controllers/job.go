@@ -53,6 +53,11 @@ func (controller *JobController) Post(w http.ResponseWriter, r *http.Request, pa
 		return
 	}
 
+	if job.Status.String() == updateData.NextState {
+		writeStatus(w, http.StatusAccepted, nil)
+		return
+	}
+
 	switch updateData.NextState {
 	case data.JobInflight.String():
 		switch job.Status {
